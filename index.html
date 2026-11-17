@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lanun Harta Karun: Misi Emosi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Fredoka & Nunito untuk gaya kartun kanak-kanak yang jelas & ceria -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Tone.js untuk kesan bunyi tanpa pautan audio luar -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti untuk kesan sambutan emas -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --sky-top: #38bdf8;
+            --sky-bottom: #bae6fd;
+            --sea-top: #0284c7;
+            --sea-bottom: #0369a1;
+            --sand: #fde047;
+            --wood: #78350f;
+            --wood-light: #b45309;
+            --gold: #fbbf24;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+            background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 55%, var(--sea-top) 55%, var(--sea-bottom) 100%);
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .font-pirate {
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+
+        /* Animasi Ombak Laut */
+        @keyframes waveMove {
+            0% { transform: translateX(0) translateY(0); }
+            50% { transform: translateX(-25px) translateY(4px); }
+            100% { transform: translateX(0) translateY(0); }
+        }
+
+        @keyframes shipBob {
+            0%, 100% { transform: translateY(0px) rotate(-2deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.6); transform: scale(1); }
+            50% { box-shadow: 0 0 30px rgba(251, 191, 36, 1); transform: scale(1.03); }
+        }
+
+        @keyframes coinFly {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0.4) rotate(720deg); opacity: 0; }
+        }
+
+        .animate-ship {
+            animation: shipBob 4s ease-in-out infinite;
+        }
+
+        .animate-wave {
+            animation: waveMove 6s ease-in-out infinite;
+        }
+
+        .animate-float {
+            animation: floatSlow 3s ease-in-out infinite;
+        }
+
+        .animate-glow {
+            animation: pulseGlow 2s infinite;
+        }
+
+        /* Butang Gaya Kayu & Emas Lanun */
+        .btn-pirate-gold {
+            background: linear-gradient(180deg, #fde047 0%, #f59e0b 100%);
+            border: 4px solid #78350f;
+            box-shadow: 0 6px 0 #78350f, 0 10px 15px rgba(0,0,0,0.25);
+            color: #451a03;
+            transition: all 0.15s ease;
+        }
+        .btn-pirate-gold:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+        }
+        .btn-pirate-gold:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #78350f;
+        }
+
+        .btn-pirate-wood {
+            background: linear-gradient(180deg, #b45309 0%, #78350f 100%);
+            border: 3px solid #fef08a;
+            box-shadow: 0 5px 0 #451a03, 0 8px 12px rgba(0,0,0,0.25);
+            color: #fef9c3;
+            transition: all 0.15s ease;
+        }
+        .btn-pirate-wood:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+        .btn-pirate-wood:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #451a03;
+        }
+
+        /* Bingkai Peta Harta Karun */
+        .parchment-box {
+            background: #fef3c7;
+            background-image: radial-gradient(#fde68a 15%, transparent 16%), radial-gradient(#fde68a 15%, transparent 16%);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            border: 5px solid #92400e;
+            box-shadow: inset 0 0 20px rgba(146, 64, 14, 0.25), 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        /* Video cermin (mirror) untuk kamera hadapan */
+        #webcam {
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+
+        #output_canvas {
+            transform: scaleX(-1);
+        }
+
+        .flying-coin {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            font-size: 2.5rem;
+            animation: coinFly 0.85s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+    </style>
+</head>
+<body class="relative flex flex-col justify-between min-h-screen text-slate-900">
+
+    <!-- LATAR BELAKANG PULAU HARTA KARUN & KAPAL LANUN (SVG Hiasan) -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <!-- Matahari Tersenyum -->
+        <div class="absolute top-6 left-8 w-24 h-24 md:w-32 md:h-32 animate-float opacity-90">
+            <svg viewBox="0 0 120 120" class="w-full h-full">
+                <circle cx="60" cy="60" r="36" fill="#fde047" stroke="#f59e0b" stroke-width="4"/>
+                <g stroke="#fbbf24" stroke-width="5" stroke-linecap="round">
+                    <line x1="60" y1="8" x2="60" y2="18"/>
+                    <line x1="60" y1="102" x2="60" y2="112"/>
+                    <line x1="8" y1="60" x2="18" y2="60"/>
+                    <line x1="102" y1="60" x2="112" y2="60"/>
+                    <line x1="23" y1="23" x2="30" y2="30"/>
+                    <line x1="90" y1="90" x2="97" y2="97"/>
+                    <line x1="97" y1="23" x2="90" y2="30"/>
+                    <line x1="30" y1="90" x2="23" y2="97"/>
+                </g>
+                <circle cx="48" cy="55" r="4" fill="#78350f"/>
+                <circle cx="72" cy="55" r="4" fill="#78350f"/>
+                <path d="M 48 68 Q 60 78 72 68" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <!-- Awan Kartun -->
+        <svg class="absolute top-12 right-12 w-36 h-20 opacity-80 animate-wave" viewBox="0 0 200 100">
+            <path d="M45,80 L155,80 C175,80 185,65 180,50 C175,35 160,30 145,35 C135,15 105,10 85,25 C65,15 40,25 35,45 C15,50 15,80 45,80 Z" fill="#ffffff"/>
+        </svg>
+
+        <!-- Pulau Tropika di Kanan Bawah -->
+        <svg class="absolute bottom-8 right-0 w-72 md:w-96 h-auto opacity-95" viewBox="0 0 400 260">
+            <!-- Pasir Pulau -->
+            <path d="M 80 250 Q 220 170 400 220 L 400 260 Z" fill="#fde047" stroke="#eab308" stroke-width="4"/>
+            <!-- Batang Pokok Kelapa -->
+            <path d="M 270 215 Q 250 140 280 85" stroke="#92400e" stroke-width="14" fill="none" stroke-linecap="round"/>
+            <!-- Daun Kelapa -->
+            <path d="M 280 85 Q 230 60 210 100" stroke="#16a34a" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M 280 85 Q 240 40 285 35" stroke="#22c55e" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M 280 85 Q 330 50 350 95" stroke="#16a34a" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M 280 85 Q 320 105 330 130" stroke="#15803d" stroke-width="9" fill="none" stroke-linecap="round"/>
+            <!-- Buah Kelapa -->
+            <circle cx="273" cy="95" r="6" fill="#78350f"/>
+            <circle cx="286" cy="96" r="6" fill="#78350f"/>
+            <!-- Peti Harta Karun Kecil -->
+            <rect x="190" y="185" width="46" height="32" rx="4" fill="#b45309" stroke="#451a03" stroke-width="3"/>
+            <rect x="188" y="178" width="50" height="12" rx="4" fill="#d97706" stroke="#451a03" stroke-width="3"/>
+            <rect x="209" y="186" width="8" height="10" fill="#fde047" stroke="#451a03" stroke-width="2"/>
+        </svg>
+
+        <!-- Kapal Lanun Kartun di Kiri Bawah -->
+        <svg class="absolute bottom-10 left-2 w-64 md:w-80 h-auto animate-ship opacity-95" viewBox="0 0 320 260">
+            <!-- Tiang Layar -->
+            <rect x="145" y="40" width="10" height="140" fill="#78350f"/>
+            <!-- Bendera Lanun -->
+            <path d="M 155 42 L 205 55 L 155 68 Z" fill="#1e293b"/>
+            <circle cx="173" cy="55" r="5" fill="#ffffff"/>
+            <!-- Layar Besar -->
+            <path d="M 150 75 Q 225 110 150 155 Z" fill="#fffbeb" stroke="#d97706" stroke-width="3"/>
+            <path d="M 145 80 Q 85 115 145 150 Z" fill="#fef3c7" stroke="#d97706" stroke-width="3"/>
+            <!-- Badan Kapal -->
+            <path d="M 55 165 L 255 165 L 225 220 L 95 220 Z" fill="#92400e" stroke="#451a03" stroke-width="4"/>
+            <path d="M 65 180 L 245 180" stroke="#fbbf24" stroke-width="5"/>
+            <!-- Tingkap Bulat Kapal -->
+            <circle cx="115" cy="198" r="8" fill="#fde047" stroke="#451a03" stroke-width="3"/>
+            <circle cx="155" cy="198" r="8" fill="#fde047" stroke="#451a03" stroke-width="3"/>
+            <circle cx="195" cy="198" r="8" fill="#fde047" stroke="#451a03" stroke-width="3"/>
+        </svg>
+
+        <!-- Ombak Laut Bawah -->
+        <svg class="absolute bottom-0 left-0 w-full h-16 animate-wave" preserveAspectRatio="none" viewBox="0 0 1200 120">
+            <path d="M0,40 Q150,90 300,40 T600,40 T900,40 T1200,40 L1200,120 L0,120 Z" fill="#0ea5e9" opacity="0.7"/>
+            <path d="M0,65 Q150,15 300,65 T600,65 T900,65 T1200,65 L1200,120 L0,120 Z" fill="#38bdf8" opacity="0.8"/>
+        </svg>
+    </div>
+
+    <!-- BAR NAVIGASI ATAS (KAWALAN SUARA & STATUS) -->
+    <header class="relative z-20 w-full max-w-6xl mx-auto px-4 pt-3 flex items-center justify-between">
+        <div class="flex items-center gap-2 bg-amber-900/90 text-amber-100 px-4 py-2 rounded-full border-2 border-amber-400 shadow-lg">
+            <span class="text-2xl">🏴‍☠️</span>
+            <span class="font-pirate font-bold text-sm md:text-lg tracking-wide">LANUN HARTA KARUN</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Butang Kawalan Bunyi & Suara -->
+            <button id="btn-sound-toggle" onclick="toggleAudio()" class="btn-pirate-wood px-4 py-2 rounded-full font-bold text-sm md:text-base flex items-center gap-2 cursor-pointer" aria-label="Tukar status bunyi">
+                <span id="sound-icon">🔊</span>
+                <span id="sound-text" class="hidden sm:inline">Bunyi: AKTIF</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- KANDUNGAN UTAMA PERMAINAN -->
+    <main class="relative z-10 flex-grow flex items-center justify-center p-4">
+
+        <!-- ==================== 1. SKRIN MENU UTAMA ==================== -->
+        <section id="screen-menu" class="w-full max-w-3xl parchment-box rounded-3xl p-6 md:p-10 text-center">
+            <!-- Kapten Lanun Kartun -->
+            <div class="w-28 h-28 md:w-36 md:h-36 mx-auto mb-3 animate-float">
+                <svg viewBox="0 0 160 160" class="w-full h-full drop-shadow-md">
+                    <!-- Topi Lanun -->
+                    <path d="M 20 65 Q 80 10 140 65 Q 115 80 80 75 Q 45 80 20 65 Z" fill="#1e293b" stroke="#fbbf24" stroke-width="4"/>
+                    <circle cx="80" cy="48" r="10" fill="#ffffff"/>
+                    <path d="M 72 58 L 88 58" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Muka Kapten -->
+                    <circle cx="80" cy="95" r="38" fill="#fed7aa" stroke="#9a3412" stroke-width="3"/>
+                    <!-- Penutup Mata Lanun -->
+                    <path d="M 45 82 L 115 78" stroke="#1e293b" stroke-width="4"/>
+                    <circle cx="65" cy="85" r="11" fill="#1e293b"/>
+                    <!-- Mata Kanan Ceria -->
+                    <circle cx="96" cy="86" r="6" fill="#1e293b"/>
+                    <circle cx="98" cy="84" r="2" fill="#ffffff"/>
+                    <!-- Misai & Senyuman -->
+                    <path d="M 60 108 Q 80 125 100 108" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    <path d="M 65 112 Q 80 128 95 112 Z" fill="#ffffff"/>
+                    <!-- Anting-anting Emas -->
+                    <circle cx="41" cy="105" r="6" fill="none" stroke="#fbbf24" stroke-width="3"/>
+                </svg>
+            </div>
+
+            <div class="inline-block bg-amber-500 text-amber-950 font-extrabold px-4 py-1 rounded-full text-xs md:text-sm mb-2 border-2 border-amber-800">
+                PERMAINAN PENDIDIKAN BAHASA MELAYU
+            </div>
+
+            <h1 class="font-pirate text-3xl sm:text-5xl font-bold text-amber-900 drop-shadow-sm mb-2">
+                🏴‍☠️ LANUN HARTA KARUN:<br><span class="text-red-600">MISI EMOSI</span> 💰
+            </h1>
+
+            <p class="text-lg sm:text-2xl font-extrabold text-amber-800 mb-6">
+                “Tunjukkan Emosimu, Kumpulkan Emasmu!”
+            </p>
+
+            <!-- Kotak Panduan Ringkas -->
+            <div class="bg-white/85 rounded-2xl p-4 md:p-5 mb-6 border-2 border-amber-600 text-left space-y-2 shadow-inner">
+                <h2 class="font-pirate text-lg md:text-xl font-bold text-amber-900 flex items-center gap-2">
+                    <span>🗺️</span> Cara Bermain, Lanun Kecil:
+                </h2>
+                <ul class="text-sm md:text-base font-bold text-slate-700 space-y-1.5 list-disc list-inside">
+                    <li>Benarkan akses <strong>kamera hadapan</strong> apabila diminta.</li>
+                    <li>Lihat emoji emosi yang dipaparkan oleh <strong>Kapten Lanun</strong>.</li>
+                    <li>Tirukan mimik muka tersebut di hadapan kamera selama <strong>1 saat</strong>.</li>
+                    <li>Kumpul <strong>+10 mata</strong> dan <strong>syiling emas</strong> sebanyak mungkin dalam masa 120 saat!</li>
+                </ul>
+                <div class="mt-3 pt-2 border-t border-amber-300 text-xs text-slate-600 flex items-center gap-2">
+                    <span>🔒</span>
+                    <span><strong>Privasi Terjamin:</strong> Semua imej kamera diproses terus pada peranti anda sahaja. Tiada gambar atau video dirakam atau disimpan.</span>
+                </div>
+            </div>
+
+            <!-- Mesej Ralat Kamera (jika ditolak atau tiada) -->
+            <div id="camera-error-box" class="hidden bg-red-100 border-2 border-red-500 text-red-800 rounded-2xl p-4 mb-5 text-left">
+                <p class="font-bold text-base mb-1">⚠️ Kamera Tidak Dapat Diakses</p>
+                <p id="camera-error-msg" class="text-sm">Sila benarkan kebenaran kamera pada pelayar web anda (HTTPS atau localhost diperlukan) untuk bermain.</p>
+            </div>
+
+            <!-- Butang Mula Bermain -->
+            <button id="btn-start-game" onclick="initGame()" class="btn-pirate-gold w-full sm:w-auto px-10 py-4 rounded-2xl font-pirate text-2xl md:text-3xl font-bold cursor-pointer animate-glow">
+                ⚓ MULA BERMAIN
+            </button>
+
+            <p id="loading-model-text" class="hidden mt-4 text-amber-900 font-bold animate-pulse">
+                ⏳ Kapten sedang menyediakan teropong pengesan wajah... Sila tunggu sebentar!
+            </p>
+        </section>
+
+        <!-- ==================== 2. SKRIN PERMAINAN UTAMA ==================== -->
+        <section id="screen-game" class="hidden w-full max-w-6xl flex flex-col gap-3">
+
+            <!-- BAR STATUS ATAS: MASA, MARKAH, SYILING & PETA KEMAJUAN -->
+            <div class="grid grid-cols-3 gap-2 md:gap-4">
+                <!-- Masa Berundur -->
+                <div id="timer-box" class="parchment-box rounded-2xl p-2 md:p-3 flex flex-col items-center justify-center text-center transition-colors">
+                    <span class="text-xs md:text-sm font-extrabold text-amber-800 uppercase">⏳ Masa</span>
+                    <span id="timer-display" class="font-pirate text-2xl sm:text-4xl font-bold text-amber-950">120s</span>
+                </div>
+
+                <!-- Markah -->
+                <div class="parchment-box rounded-2xl p-2 md:p-3 flex flex-col items-center justify-center text-center">
+                    <span class="text-xs md:text-sm font-extrabold text-amber-800 uppercase">⭐ Markah</span>
+                    <span id="score-display" class="font-pirate text-2xl sm:text-4xl font-bold text-emerald-700">0</span>
+                </div>
+
+                <!-- Syiling Emas & Peti Harta Karun -->
+                <div id="chest-target" class="parchment-box rounded-2xl p-2 md:p-3 flex flex-col items-center justify-center text-center relative">
+                    <span class="text-xs md:text-sm font-extrabold text-amber-800 uppercase">💰 Syiling Emas</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xl sm:text-3xl">🪙</span>
+                        <span id="coins-display" class="font-pirate text-2xl sm:text-4xl font-bold text-amber-600">0</span>
+                    </div>
+                    <!-- Petunjuk Siri Berturut-turut (Streak) -->
+                    <div id="streak-badge" class="hidden absolute -bottom-2.5 bg-red-600 text-white text-[10px] md:text-xs font-extrabold px-2.5 py-0.5 rounded-full border border-yellow-300 shadow">
+                        🔥 Siri: 0/3
+                    </div>
+                </div>
+            </div>
+
+            <!-- AMARAN MASA 10 SAAT TERAKHIR -->
+            <div id="time-warning-banner" class="hidden bg-red-600 text-white font-pirate text-center py-2 px-4 rounded-xl border-2 border-yellow-300 shadow-lg animate-bounce text-base md:text-xl">
+                ⏰ Cepat, Kapten! Masa hampir tamat!
+            </div>
+
+            <!-- KAWASAN UTAMA: KAMERA DI TENGAH & KAD CABARAN EMOSI -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+
+                <!-- PAPARAN KAMERA LANGSUNG (7 Kolum pada skrin besar) -->
+                <div class="lg:col-span-7 relative bg-slate-900 rounded-3xl overflow-hidden border-4 border-amber-500 shadow-2xl flex items-center justify-center min-h-[300px] sm:min-h-[380px]">
+                    <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                    <canvas id="output_canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+                    <!-- Status Pengesanan Wajah di Atas Kamera -->
+                    <div id="face-status-pill" class="absolute top-3 left-3 bg-black/70 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 backdrop-blur-sm border border-white/20">
+                        <span id="face-dot" class="w-3 h-3 rounded-full bg-yellow-400 animate-ping"></span>
+                        <span id="face-status-text">Mencari wajah lanun...</span>
+                    </div>
+
+                    <!-- Bar Kemajuan Tahan Ekspresi (1 Saat) -->
+                    <div class="absolute bottom-3 left-3 right-3 bg-black/75 backdrop-blur-sm p-3 rounded-2xl border border-amber-400/50">
+                        <div class="flex justify-between items-center text-xs sm:text-sm font-bold text-amber-200 mb-1.5">
+                            <span id="match-hint-text">Tunjukkan mimik muka seperti emoji!</span>
+                            <span id="match-percent-text">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-700 h-4 rounded-full overflow-hidden border border-slate-500">
+                            <div id="hold-progress-bar" class="h-full bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400 transition-all duration-100 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Lapisan Maklum Balas Berjaya & Ayat Contoh Pendidikan -->
+                    <div id="success-overlay" class="hidden absolute inset-0 bg-amber-950/90 backdrop-blur-md flex flex-col items-center justify-center p-5 text-center z-30">
+                        <div class="text-6xl sm:text-7xl mb-2 animate-bounce" id="success-emoji">😄</div>
+                        <h3 id="success-headline" class="font-pirate text-2xl sm:text-3xl font-bold text-yellow-300 mb-1">
+                            Hebat, Kapten Kecil! +10 Mata!
+                        </h3>
+                        <p id="bonus-message" class="hidden bg-gradient-to-r from-yellow-400 to-amber-500 text-amber-950 font-extrabold px-4 py-1 rounded-full text-sm mb-3 shadow">
+                            💎 BONUS HARTA KARUN 3 BERTURUT-TURUT! +15 MATA!
+                        </p>
+
+                        <!-- Kad Pembelajaran Bahasa Melayu -->
+                        <div class="bg-amber-100 border-4 border-amber-400 rounded-2xl p-4 max-w-md w-full shadow-lg mt-2">
+                            <span class="inline-block bg-amber-700 text-white text-xs font-bold px-3 py-0.5 rounded-full mb-1">
+                                📚 BELAJAR KOSA KATA
+                            </span>
+                            <h4 id="edu-word" class="font-pirate text-2xl font-bold text-amber-900 mb-1">Gembira</h4>
+                            <p id="edu-sentence" class="text-base sm:text-lg font-bold text-slate-800 leading-snug">
+                                “Ali berasa gembira kerana mendapat hadiah.”
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KAD CABARAN KAPTEN LANUN & EMOJI (5 Kolum pada skrin besar) -->
+                <div class="lg:col-span-5 parchment-box rounded-3xl p-4 sm:p-6 flex flex-col justify-between relative">
+                    <!-- Emoji Besar di Penjuru Kanan Atas Kad -->
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <span class="inline-block bg-amber-800 text-amber-100 text-xs font-extrabold px-3 py-1 rounded-full mb-1">
+                                CABARAN #<span id="challenge-number">1</span>
+                            </span>
+                            <h2 id="target-emotion-name" class="font-pirate text-3xl sm:text-4xl font-bold text-amber-950 uppercase tracking-wide">
+                                GEMBIRA
+                            </h2>
+                        </div>
+                        <div id="target-emoji-display" class="text-6xl sm:text-7xl bg-white rounded-3xl p-3 border-4 border-amber-500 shadow-lg animate-float select-none">
+                            😄
+                        </div>
+                    </div>
+
+                    <!-- Arahan Kapten Lanun -->
+                    <div class="bg-white/90 rounded-2xl p-4 border-2 border-amber-600 my-3 shadow-sm">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-3xl">🏴‍☠️</span>
+                            <p id="captain-instruction" class="font-pirate text-lg sm:text-xl font-bold text-amber-900 leading-tight">
+                                Kapten Lanun berkata: Tunjukkan wajah GEMBIRA!
+                            </p>
+                        </div>
+                        <p id="gesture-tip" class="text-sm font-bold text-sky-800 bg-sky-100 px-3 py-2 rounded-xl border border-sky-300">
+                            💡 Petunjuk: Senyum lebar dan tunjukkan rasa gembira!
+                        </p>
+                    </div>
+
+                    <!-- Peta Kemajuan Harta Karun Mini -->
+                    <div class="mb-3">
+                        <div class="flex justify-between text-xs font-extrabold text-amber-900 mb-1">
+                            <span>🗺️ Peta Pengembaraan</span>
+                            <span id="map-progress-label">0 / 10 Emosi</span>
+                        </div>
+                        <div id="treasure-map-dots" class="flex items-center justify-between bg-amber-200/80 p-2 rounded-xl border border-amber-600">
+                            <!-- Titik kemajuan dijana oleh JS -->
+                        </div>
+                    </div>
+
+                    <!-- Butang Bantu: Dengar Semula & Langkau / Cuba Emosi Lain -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="speakCurrentInstruction()" class="btn-pirate-wood py-2.5 px-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer">
+                            <span>🗣️</span> Dengar Arahan
+                        </button>
+                        <button onclick="skipEmotion()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 border-2 border-slate-400 py-2.5 px-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer transition">
+                            <span>⏭️</span> Langkau Emosi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. SKRIN TAMAT PERMAINAN ==================== -->
+        <section id="screen-end" class="hidden w-full max-w-2xl parchment-box rounded-3xl p-6 md:p-10 text-center">
+            <!-- Animasi Peti Harta Karun Terbuka -->
+            <div class="relative w-32 h-32 mx-auto mb-3 animate-bounce">
+                <svg viewBox="0 0 160 160" class="w-full h-full drop-shadow-xl">
+                    <!-- Cahaya Emas -->
+                    <polygon points="80,80 20,10 140,10" fill="#fef08a" opacity="0.6"/>
+                    <!-- Penutup Peti Terbuka -->
+                    <path d="M 25 65 Q 80 25 135 65 L 130 45 Q 80 10 30 45 Z" fill="#b45309" stroke="#451a03" stroke-width="4"/>
+                    <!-- Timbunan Syiling Emas & Berlian -->
+                    <circle cx="55" cy="72" r="10" fill="#fbbf24" stroke="#b45309" stroke-width="2"/>
+                    <circle cx="80" cy="68" r="12" fill="#fde047" stroke="#b45309" stroke-width="2"/>
+                    <circle cx="105" cy="72" r="10" fill="#fbbf24" stroke="#b45309" stroke-width="2"/>
+                    <polygon points="80,50 90,62 80,74 70,62" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/>
+                    <!-- Badan Peti -->
+                    <rect x="25" y="75" width="110" height="65" rx="8" fill="#92400e" stroke="#451a03" stroke-width="4"/>
+                    <rect x="25" y="95" width="110" height="12" fill="#fbbf24" stroke="#451a03" stroke-width="2"/>
+                    <rect x="70" y="88" width="20" height="26" rx="4" fill="#fde047" stroke="#451a03" stroke-width="3"/>
+                </svg>
+            </div>
+
+            <h2 class="font-pirate text-3xl sm:text-5xl font-bold text-amber-900 mb-1">
+                TAHNIAH, KAPTEN HEBAT!
+            </h2>
+            <p class="text-lg sm:text-xl font-extrabold text-red-600 mb-5">
+                Misi Memburu Harta Karun Tamat!
+            </p>
+
+            <!-- Lencana Pencapaian Lanun -->
+            <div class="bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 border-4 border-amber-700 rounded-2xl p-4 mb-5 shadow-md">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-amber-900">🏅 Lencana Pencapaian Kamu</span>
+                <div id="end-badge-title" class="font-pirate text-2xl sm:text-3xl font-bold text-amber-950 mt-1">
+                    🌟 Kapten Lanun Emosi Terbilang
+                </div>
+            </div>
+
+            <!-- Statistik Skor -->
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="bg-white/90 rounded-2xl p-3 border-2 border-amber-600">
+                    <span class="block text-xs font-bold text-slate-600">Jumlah Markah</span>
+                    <span id="end-score" class="font-pirate text-2xl sm:text-3xl font-bold text-emerald-700">0</span>
+                </div>
+                <div class="bg-white/90 rounded-2xl p-3 border-2 border-amber-600">
+                    <span class="block text-xs font-bold text-slate-600">Emosi Betul</span>
+                    <span id="end-correct" class="font-pirate text-2xl sm:text-3xl font-bold text-sky-700">0</span>
+                </div>
+                <div class="bg-white/90 rounded-2xl p-3 border-2 border-amber-600">
+                    <span class="block text-xs font-bold text-slate-600">Syiling Emas</span>
+                    <span id="end-coins" class="font-pirate text-2xl sm:text-3xl font-bold text-amber-600">0</span>
+                </div>
+            </div>
+
+            <p id="end-encouragement" class="text-base sm:text-lg font-bold text-amber-950 bg-white/75 p-4 rounded-2xl border border-amber-500 mb-6">
+                Syabas, lanun kecil! Kamu sangat pandai mengenal dan menunjukkan pelbagai emosi hari ini!
+            </p>
+
+            <!-- Dua Butang Besar -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="restartGame()" class="btn-pirate-gold flex-1 py-4 px-6 rounded-2xl font-pirate text-xl sm:text-2xl font-bold cursor-pointer">
+                    🔄 MAIN SEMULA
+                </button>
+                <button onclick="returnToMenu()" class="btn-pirate-wood flex-1 py-4 px-6 rounded-2xl font-pirate text-xl sm:text-2xl font-bold cursor-pointer">
+                    🏠 KEMBALI KE MENU
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SKRIP MEDIAPIPE VISION & LOGIK PERMAINAN -->
+    <script type="module">
+        import {
+            FaceLandmarker,
+            FilesetResolver
+        } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
+
+        // Pendedahan fungsi ke skop global untuk butang HTML
+        window.initGame = initGame;
+        window.toggleAudio = toggleAudio;
+        window.speakCurrentInstruction = speakCurrentInstruction;
+        window.skipEmotion = skipEmotion;
+        window.restartGame = restartGame;
+        window.returnToMenu = returnToMenu;
+
+        // ==================== DATA 10 EMOSI & GESTUR WAJAH ====================
+        // Menggunakan gabungan skor blendshapes MediaPipe & geometri titik tanda wajah
+        // Untuk emosi seperti malu, yakin, lucu, dan mengantuk, arahan gestur fizikal yang jelas diberikan.
+        const EMOTIONS_DATA = [
+            {
+                id: "gembira",
+                name: "GEMBIRA",
+                emoji: "😄",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah GEMBIRA!",
+                voicePrompt: "Ayuh, lanun kecil! Tunjukkan wajah gembira seperti emoji ini!",
+                tip: "💡 Petunjuk: Senyum lebar dan angkat pipi kamu!",
+                sentence: "Ali berasa gembira kerana mendapat hadiah.",
+                evaluate: (bs, lm) => {
+                    const smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+                    return smile > 0.45 ? Math.min(1, smile * 1.4) : smile;
+                }
+            },
+            {
+                id: "sedih",
+                name: "SEDIH",
+                emoji: "😢",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah SEDIH!",
+                voicePrompt: "Ayuh, lanun kecil! Tunjukkan wajah sedih seperti emoji ini!",
+                tip: "💡 Petunjuk: Turunkan hujung bibir ke bawah dan kerutkan kening sedikit.",
+                sentence: "Siti berasa sedih apabila kehilangan penselnya.",
+                evaluate: (bs, lm) => {
+                    const frown = ((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2;
+                    const browInner = bs.browInnerUp || 0;
+                    const score = (frown * 0.7) + (browInner * 0.4);
+                    return score > 0.35 ? Math.min(1, score * 1.6) : score;
+                }
+            },
+            {
+                id: "marah",
+                name: "MARAH",
+                emoji: "😠",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah MARAH!",
+                voicePrompt: "Ayuh, lanun kecil! Tunjukkan wajah marah seperti emoji ini!",
+                tip: "💡 Petunjuk: Rapatkan dan turunkan kening sambil mengetap bibir!",
+                sentence: "Amir berasa marah apabila barangnya dirosakkan.",
+                evaluate: (bs, lm) => {
+                    const browDown = ((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2;
+                    const mouthPress = ((bs.mouthPressLeft || 0) + (bs.mouthPressRight || 0)) / 2;
+                    const score = (browDown * 0.75) + (mouthPress * 0.35);
+                    return score > 0.38 ? Math.min(1, score * 1.5) : score;
+                }
+            },
+            {
+                id: "takut",
+                name: "TAKUT",
+                emoji: "😨",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah TAKUT!",
+                voicePrompt: "Ayuh, lanun kecil! Tunjukkan wajah takut seperti emoji ini!",
+                tip: "💡 Petunjuk: Buka mata luas-luas, angkat kening dan buka mulut sedikit!",
+                sentence: "Adik berasa takut apabila mendengar bunyi guruh.",
+                evaluate: (bs, lm) => {
+                    const eyeWide = ((bs.eyeWideLeft || 0) + (bs.eyeWideRight || 0)) / 2;
+                    const browUp = bs.browInnerUp || 0;
+                    const jawOpen = bs.jawOpen || 0;
+                    const score = (eyeWide * 0.45) + (browUp * 0.35) + (jawOpen * 0.3);
+                    return score > 0.36 ? Math.min(1, score * 1.5) : score;
+                }
+            },
+            {
+                id: "mengantuk",
+                name: "MENGANTUK",
+                emoji: "😴",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah MENGANTUK!",
+                voicePrompt: "Ayuh, lanun kecil! Pejamkan mata seperti sedang mengantuk!",
+                tip: "💡 Gestur Khas: Pejamkan kedua-dua mata kamu seperti mahu tidur!",
+                sentence: "Nadia berasa mengantuk kerana tidur lewat malam tadi.",
+                evaluate: (bs, lm) => {
+                    // Gestur mata tertutup rapat
+                    const blink = ((bs.eyeBlinkLeft || 0) + (bs.eyeBlinkRight || 0)) / 2;
+                    return blink > 0.55 ? Math.min(1, blink * 1.2) : blink * 0.8;
+                }
+            },
+            {
+                id: "terkejut",
+                name: "TERKEJUT",
+                emoji: "😲",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah TERKEJUT!",
+                voicePrompt: "Ayuh, lanun kecil! Tunjukkan wajah terkejut seperti emoji ini!",
+                tip: "💡 Petunjuk: Nganga mulut besar dan angkat kedua-dua kening!",
+                sentence: "Aina terkejut apabila melihat hadiah di atas meja.",
+                evaluate: (bs, lm) => {
+                    const jawOpen = bs.jawOpen || 0;
+                    const browOuter = ((bs.browOuterUpLeft || 0) + (bs.browOuterUpRight || 0)) / 2;
+                    const score = (jawOpen * 0.65) + (browOuter * 0.45);
+                    return score > 0.45 ? Math.min(1, score * 1.4) : score;
+                }
+            },
+            {
+                id: "lucu",
+                name: "LUCU",
+                emoji: "🤪",
+                instruction: "Kapten Lanun berkata: Buat muka LUCU!",
+                voicePrompt: "Ayuh, lanun kecil! Buat muka lucu atau jelirkan lidah seperti emoji ini!",
+                tip: "💡 Gestur Khas: Jelirkan lidah atau sengetkan mulut kamu dengan ceria!",
+                sentence: "Hafiz membuat muka lucu untuk menghiburkan adiknya.",
+                evaluate: (bs, lm) => {
+                    // Jelir lidah atau senyuman senget (pucker/left/right)
+                    const tongue = bs.tongueOut || 0;
+                    const mouthSkew = Math.max(bs.mouthLeft || 0, bs.mouthRight || 0, bs.mouthPucker || 0);
+                    const score = Math.max(tongue * 1.3, mouthSkew * 1.1);
+                    return Math.min(1, score);
+                }
+            },
+            {
+                id: "yakin",
+                name: "YAKIN",
+                emoji: "😎",
+                instruction: "Kapten Lanun berkata: Tunjukkan gaya YAKIN!",
+                voicePrompt: "Ayuh, lanun kecil! Angkat dagu dan senyum yakin seperti kapten!",
+                tip: "💡 Gestur Khas: Angkat kepala sedikit ke atas sambil tersenyum yakin!",
+                sentence: "Farah berasa yakin semasa menyampaikan ceritanya di hadapan kelas.",
+                evaluate: (bs, lm) => {
+                    // Senyum + kepala mendongak sedikit (hidung lebih tinggi berbanding telinga/pipi)
+                    const smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+                    let headUp = 0;
+                    if (lm && lm.length > 200) {
+                        const noseY = lm[1].y;
+                        const earMidY = (lm[234].y + lm[454].y) / 2;
+                        // Jika mendongak, noseY lebih kecil daripada earMidY
+                        if (earMidY - noseY > 0.02) headUp = 0.4;
+                    }
+                    const score = (smile * 0.7) + headUp;
+                    return Math.min(1, score);
+                }
+            },
+            {
+                id: "keliru",
+                name: "KELIRU",
+                emoji: "😕",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah KELIRU!",
+                voicePrompt: "Ayuh, lanun kecil! Sengetkan kepala dan kerutkan kening seperti keliru!",
+                tip: "💡 Gestur Khas: Sengetkan kepala ke kiri atau kanan sambil berfikir!",
+                sentence: "Zul berasa keliru apabila melihat dua jalan yang berbeza.",
+                evaluate: (bs, lm) => {
+                    // Kepala disengetkan (roll angle) + kerut kening atau mulut herot
+                    let tiltScore = 0;
+                    if (lm && lm.length > 454) {
+                        const dx = lm[454].x - lm[234].x;
+                        const dy = lm[454].y - lm[234].y;
+                        const angleDeg = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+                        if (angleDeg > 13) tiltScore = Math.min(0.7, angleDeg / 25);
+                    }
+                    const brow = ((bs.browDownLeft || 0) + (bs.browInnerUp || 0)) / 2;
+                    return Math.min(1, tiltScore + brow * 0.5);
+                }
+            },
+            {
+                id: "malu",
+                name: "MALU",
+                emoji: "😊",
+                instruction: "Kapten Lanun berkata: Tunjukkan wajah MALU!",
+                voicePrompt: "Ayuh, lanun kecil! Tundukkan kepala sedikit dan senyum tersipu malu!",
+                tip: "💡 Gestur Khas: Tundukkan kepala sedikit ke bawah sambil tersenyum manis!",
+                sentence: "Mei Ling tersenyum malu apabila dipuji oleh gurunya.",
+                evaluate: (bs, lm) => {
+                    // Senyuman lembut + kepala tunduk sedikit ke bawah
+                    const smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+                    let headDown = 0;
+                    if (lm && lm.length > 454) {
+                        const noseY = lm[1].y;
+                        const earMidY = (lm[234].y + lm[454].y) / 2;
+                        if (noseY - earMidY > 0.045) headDown = 0.45;
+                    }
+                    return Math.min(1, (smile * 0.65) + headDown);
+                }
+            }
+        ];
+
+        // Mesej Pujian Bahasa Melayu Rawak
+        const PRAISE_MESSAGES = [
+            "Hebat, Kapten Kecil! +10 Mata!",
+            "Syabas! Kamu berjaya mengumpul syiling emas!",
+            "Bagus sekali! Teruskan mencari harta karun!",
+            "Wah, pantasnya kamu meniru ekspresi itu! +10 Mata!",
+            "Terbaik, Lanun Muda! Peti emas semakin penuh!"
+        ];
+
+        // ==================== PEMBOLEH UBAH KEADAAN PERMAINAN ====================
+        let faceLandmarker = null;
+        let webcamStream = null;
+        let isModelReady = false;
+        let isGameRunning = false;
+        let isPausedForFeedback = false;
+        let audioEnabled = true;
+
+        // Statistik Pemain
+        let score = 0;
+        let coins = 0;
+        let correctCount = 0;
+        let streakCount = 0;
+        let timeLeft = 120;
+        let timerInterval = null;
+
+        // Cabaran Semasa
+        let challengeQueue = [];
+        let currentEmotionIndex = 0;
+        let currentChallengeNumber = 1;
+        let holdStartTime = null;
+        const REQUIRED_HOLD_MS = 1000; // 1 saat pegangan stabil
+        const MATCH_THRESHOLD = 0.58;  // Tahap keyakinan minimum
+
+        // Elemen DOM
+        const videoEl = document.getElementById("webcam");
+        const canvasEl = document.getElementById("output_canvas");
+        const canvasCtx = canvasEl.getContext("2d");
+
+        // ==================== SISTEM AUDIO & SUARA (ms-MY) ====================
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const icon = document.getElementById("sound-icon");
+            const text = document.getElementById("sound-text");
+            if (audioEnabled) {
+                icon.textContent = "🔊";
+                text.textContent = "Bunyi: AKTIF";
+            } else {
+                icon.textContent = "🔇";
+                text.textContent = "Bunyi: SENYAP";
+                if ("speechSynthesis" in window) {
+                    window.speechSynthesis.cancel();
+                }
+            }
+        }
+
+        function speakMalay(text) {
+            if (!audioEnabled || !("speechSynthesis" in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "ms-MY";
+                utterance.rate = 0.95;
+                utterance.pitch = 1.1;
+
+                // Cuba cari suara ms-MY jika tersedia pada peranti
+                const voices = window.speechSynthesis.getVoices();
+                const msVoice = voices.find(v => v.lang.toLowerCase().includes("ms"));
+                if (msVoice) {
+                    utterance.voice = msVoice;
+                }
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Sintesis suara tidak disokong:", e);
+            }
+        }
+
+        // Kesan Bunyi "Ting Ting!" menggunakan Tone.js
+        async function playCoinSound(isBonus = false) {
+            if (!audioEnabled || typeof Tone === "undefined") return;
+            try {
+                await Tone.start();
+                const synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.05, release: 0.4 }
+                }).toDestination();
+
+                const now = Tone.now();
+                synth.triggerAttackRelease("B5", "16n", now);
+                synth.triggerAttackRelease("E6", "8n", now + 0.12);
+                if (isBonus) {
+                    synth.triggerAttackRelease("G#6", "8n", now + 0.24);
+                    synth.triggerAttackRelease("B6", "4n", now + 0.36);
+                }
+            } catch (e) {
+                console.warn("Ralat audio Tone.js:", e);
+            }
+        }
+
+        async function playFanfareSound() {
+            if (!audioEnabled || typeof Tone === "undefined") return;
+            try {
+                await Tone.start();
+                const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                const now = Tone.now();
+                synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                synth.triggerAttackRelease(["D5", "F5", "A5"], "8n", now + 0.15);
+                synth.triggerAttackRelease(["E5", "G5", "B5"], "8n", now + 0.30);
+                synth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "2n", now + 0.45);
+            } catch (e) {
+                console.warn("Ralat fanfare:", e);
+            }
+        }
+
+        // ==================== PENYEDIAAN MEDIAPIPE & KAMERA ====================
+        async function setupFaceLandmarker() {
+            if (isModelReady && faceLandmarker) return true;
+            const filesetResolver = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
+            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+                baseOptions: {
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+                    delegate: "GPU"
+                },
+                outputFaceBlendshapes: true,
+                runningMode: "VIDEO",
+                numFaces: 1
+            });
+            isModelReady = true;
+            return true;
+        }
+
+        async function startCamera() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Pelayar web ini tidak menyokong akses kamera. Sila gunakan Chrome, Edge, atau Safari terkini melalui HTTPS.");
+            }
+            webcamStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "user",
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
+            });
+            videoEl.srcObject = webcamStream;
+            await new Promise((resolve) => {
+                videoEl.onloadedmetadata = () => {
+                    videoEl.play();
+                    resolve();
+                };
+            });
+        }
+
+        function stopCamera() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+        }
+
+        // ==================== ALIRAN PERMAINAN ====================
+        async function initGame() {
+            const btnStart = document.getElementById("btn-start-game");
+            const loadingText = document.getElementById("loading-model-text");
+            const errorBox = document.getElementById("camera-error-box");
+            const errorMsg = document.getElementById("camera-error-msg");
+
+            errorBox.classList.add("hidden");
+            btnStart.disabled = true;
+            btnStart.classList.add("opacity-60");
+            loadingText.classList.remove("hidden");
+
+            try {
+                // 1. Minta kebenaran kamera secara eksplisit
+                await startCamera();
+
+                // 2. Muatkan model pengecaman wajah MediaPipe
+                await setupFaceLandmarker();
+
+                // 3. Mulakan sesi permainan
+                loadingText.classList.add("hidden");
+                btnStart.disabled = false;
+                btnStart.classList.remove("opacity-60");
+
+                switchScreen("screen-game");
+                startNewSession();
+            } catch (err) {
+                console.error("Ralat memulakan permainan:", err);
+                loadingText.classList.add("hidden");
+                btnStart.disabled = false;
+                btnStart.classList.remove("opacity-60");
+
+                errorBox.classList.remove("hidden");
+                if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                    errorMsg.textContent = "Kebenaran kamera telah ditolak. Sila klik ikon kunci/kamera di bar alamat pelayar anda, pilih 'Benarkan' (Allow), dan tekan MULA BERMAIN semula.";
+                } else {
+                    errorMsg.textContent = err.message || "Gagal mengaktifkan kamera atau model pengecaman wajah. Pastikan sambungan internet stabil dan menggunakan HTTPS.";
+                }
+            }
+        }
+
+        function switchScreen(screenId) {
+            ["screen-menu", "screen-game", "screen-end"].forEach(id => {
+                document.getElementById(id).classList.add("hidden");
+            });
+            document.getElementById(screenId).classList.remove("hidden");
+        }
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function startNewSession() {
+            score = 0;
+            coins = 0;
+            correctCount = 0;
+            streakCount = 0;
+            timeLeft = 120;
+            currentChallengeNumber = 1;
+            isGameRunning = true;
+            isPausedForFeedback = false;
+            holdStartTime = null;
+
+            // Susun rawak senarai 10 emosi untuk pusingan pertama
+            challengeQueue = shuffleArray(EMOTIONS_DATA);
+            currentEmotionIndex = 0;
+
+            updateHUD();
+            renderTreasureMapDots();
+            loadCurrentChallenge();
+
+            // Mula pemasa 120 saat
+            clearInterval(timerInterval);
+            timerInterval = setInterval(tickTimer, 1000);
+
+            // Mula gelung pengesanan kamera
+            requestAnimationFrame(predictWebcamLoop);
+        }
+
+        function tickTimer() {
+            if (!isGameRunning) return;
+            timeLeft--;
+            const timerDisplay = document.getElementById("timer-display");
+            const timerBox = document.getElementById("timer-box");
+            const warningBanner = document.getElementById("time-warning-banner");
+
+            timerDisplay.textContent = `${timeLeft}s`;
+
+            if (timeLeft <= 10 && timeLeft > 0) {
+                timerBox.classList.add("bg-red-200", "border-red-600");
+                timerDisplay.classList.add("text-red-600");
+                warningBanner.classList.remove("hidden");
+                if (timeLeft === 10) {
+                    speakMalay("Cepat, Kapten! Masa hampir tamat!");
+                }
+            }
+
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById("score-display").textContent = score;
+            document.getElementById("coins-display").textContent = coins;
+            document.getElementById("timer-display").textContent = `${timeLeft}s`;
+
+            const streakBadge = document.getElementById("streak-badge");
+            if (streakCount > 0) {
+                streakBadge.classList.remove("hidden");
+                streakBadge.textContent = `🔥 Siri: ${streakCount}/3`;
+            } else {
+                streakBadge.classList.add("hidden");
+            }
+        }
+
+        function renderTreasureMapDots() {
+            const container = document.getElementById("treasure-map-dots");
+            container.innerHTML = "";
+            const totalDots = 10;
+            const completedInCycle = correctCount % totalDots;
+            document.getElementById("map-progress-label").textContent = `${correctCount} Emosi Selesai`;
+
+            for (let i = 0; i < totalDots; i++) {
+                const dot = document.createElement("div");
+                if (i < completedInCycle || (correctCount > 0 && completedInCycle === 0 && i < 10)) {
+                    dot.className = "w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 border-2 border-amber-800 flex items-center justify-center text-[10px] shadow";
+                    dot.textContent = "🪙";
+                } else if (i === totalDots - 1) {
+                    dot.className = "w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-100 border-2 border-dashed border-amber-700 flex items-center justify-center text-[10px]";
+                    dot.textContent = "💎";
+                } else {
+                    dot.className = "w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-100/70 border-2 border-dashed border-amber-600";
+                }
+                container.appendChild(dot);
+            }
+        }
+
+        function getCurrentEmotion() {
+            if (currentEmotionIndex >= challengeQueue.length) {
+                challengeQueue = shuffleArray(EMOTIONS_DATA);
+                currentEmotionIndex = 0;
+            }
+            return challengeQueue[currentEmotionIndex];
+        }
+
+        function loadCurrentChallenge() {
+            const emotion = getCurrentEmotion();
+            holdStartTime = null;
+            updateProgressBar(0);
+
+            document.getElementById("challenge-number").textContent = currentChallengeNumber;
+            document.getElementById("target-emotion-name").textContent = emotion.name;
+            document.getElementById("target-emoji-display").textContent = emotion.emoji;
+            document.getElementById("captain-instruction").textContent = emotion.instruction;
+            document.getElementById("gesture-tip").textContent = emotion.tip;
+            document.getElementById("success-overlay").classList.add("hidden");
+
+            speakMalay(emotion.voicePrompt);
+        }
+
+        function speakCurrentInstruction() {
+            const emotion = getCurrentEmotion();
+            speakMalay(emotion.voicePrompt);
+        }
+
+        function skipEmotion() {
+            if (!isGameRunning || isPausedForFeedback) return;
+            streakCount = 0; // Reset siri berturut-turut jika langkau
+            updateHUD();
+            currentEmotionIndex++;
+            currentChallengeNumber++;
+            loadCurrentChallenge();
+        }
+
+        function updateProgressBar(percent) {
+            const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+            document.getElementById("hold-progress-bar").style.width = `${clamped}%`;
+            document.getElementById("match-percent-text").textContent = `${clamped}%`;
+        }
+
+        // ==================== PENGESANAN EKSPRESI MASA NYATA ====================
+        let lastVideoTime = -1;
+
+        async function predictWebcamLoop() {
+            if (!isGameRunning) return;
+
+            if (videoEl.readyState >= 2 && faceLandmarker && !isPausedForFeedback) {
+                // Selaraskan saiz kanvas dengan video
+                if (canvasEl.width !== videoEl.videoWidth || canvasEl.height !== videoEl.videoHeight) {
+                    canvasEl.width = videoEl.videoWidth;
+                    canvasEl.height = videoEl.videoHeight;
+                }
+
+                const startTimeMs = performance.now();
+                if (lastVideoTime !== videoEl.currentTime) {
+                    lastVideoTime = videoEl.currentTime;
+                    const results = faceLandmarker.detectForVideo(videoEl, startTimeMs);
+
+                    canvasCtx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+                    const faceDot = document.getElementById("face-dot");
+                    const faceStatusText = document.getElementById("face-status-text");
+                    const matchHintText = document.getElementById("match-hint-text");
+
+                    if (results.faceLandmarks && results.faceLandmarks.length > 0 && results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+                        faceDot.className = "w-3 h-3 rounded-full bg-emerald-400";
+                        faceStatusText.textContent = "Wajah Lanun Dikesan!";
+
+                        // Lukis bingkai sasaran wajah comel (berkilau emas)
+                        drawPirateFaceFrame(results.faceLandmarks[0]);
+
+                        // Tukar array blendshapes kepada objek mudah dibaca
+                        const bsMap = {};
+                        for (const cat of results.faceBlendshapes[0].categories) {
+                            bsMap[cat.categoryName] = cat.score;
+                        }
+
+                        const currentEmotion = getCurrentEmotion();
+                        const confidence = currentEmotion.evaluate(bsMap, results.faceLandmarks[0]);
+
+                        if (confidence >= MATCH_THRESHOLD) {
+                            if (!holdStartTime) {
+                                holdStartTime = performance.now();
+                            }
+                            const elapsed = performance.now() - holdStartTime;
+                            const progressPct = (elapsed / REQUIRED_HOLD_MS) * 100;
+                            updateProgressBar(progressPct);
+                            matchHintText.textContent = `✨ Bagus! Kekalkan ekspresi ${currentEmotion.name}...`;
+
+                            if (elapsed >= REQUIRED_HOLD_MS) {
+                                handleSuccessfulRecognition(currentEmotion);
+                            }
+                        } else {
+                            // Kurangkan bar secara perlahan jika ekspresi terlepas seketika
+                            holdStartTime = null;
+                            updateProgressBar(confidence * 65);
+                            matchHintText.textContent = `Tunjukkan ekspresi ${currentEmotion.name} ${currentEmotion.emoji}`;
+                        }
+                    } else {
+                        faceDot.className = "w-3 h-3 rounded-full bg-amber-400 animate-ping";
+                        faceStatusText.textContent = "Sila hadapkan wajah ke kamera";
+                        matchHintText.textContent = "Wajah belum kelihatan di dalam bingkai";
+                        holdStartTime = null;
+                        updateProgressBar(0);
+                    }
+                }
+            }
+
+            requestAnimationFrame(predictWebcamLoop);
+        }
+
+        function drawPirateFaceFrame(landmarks) {
+            let minX = 1, minY = 1, maxX = 0, maxY = 0;
+            for (const pt of landmarks) {
+                if (pt.x < minX) minX = pt.x;
+                if (pt.y < minY) minY = pt.y;
+                if (pt.x > maxX) maxX = pt.x;
+                if (pt.y > maxY) maxY = pt.y;
+            }
+            const x = minX * canvasEl.width;
+            const y = minY * canvasEl.height;
+            const w = (maxX - minX) * canvasEl.width;
+            const h = (maxY - minY) * canvasEl.height;
+
+            canvasCtx.strokeStyle = "#fbbf24";
+            canvasCtx.lineWidth = 4;
+            canvasCtx.setLineDash([12, 8]);
+            canvasCtx.beginPath();
+            canvasCtx.roundRect(x - 12, y - 12, w + 24, h + 24, 24);
+            canvasCtx.stroke();
+            canvasCtx.setLineDash([]);
+        }
+
+        // ==================== GANJARAN & PEMBELAJARAN SELEPAS BERJAYA ====================
+        function animateFlyingCoin() {
+            const coin = document.createElement("div");
+            coin.className = "flying-coin";
+            coin.textContent = "🪙";
+
+            const camRect = videoEl.getBoundingClientRect();
+            const chestRect = document.getElementById("chest-target").getBoundingClientRect();
+
+            const startX = camRect.left + camRect.width / 2;
+            const startY = camRect.top + camRect.height / 2;
+            const tx = (chestRect.left + chestRect.width / 2) - startX;
+            const ty = (chestRect.top + chestRect.height / 2) - startY;
+
+            coin.style.left = `${startX}px`;
+            coin.style.top = `${startY}px`;
+            coin.style.setProperty("--tx", `${tx}px`);
+            coin.style.setProperty("--ty", `${ty}px`);
+
+            document.body.appendChild(coin);
+            setTimeout(() => coin.remove(), 900);
+        }
+
+        function handleSuccessfulRecognition(emotion) {
+            isPausedForFeedback = true;
+            holdStartTime = null;
+            updateProgressBar(100);
+
+            // Tambah markah & syiling
+            score += 10;
+            coins += 1;
+            correctCount += 1;
+            streakCount += 1;
+
+            let gotStreakBonus = false;
+            if (streakCount >= 3) {
+                gotStreakBonus = true;
+                score += 15; // Bonus harta karun 3 berturut-turut
+                coins += 2;
+                streakCount = 0;
+            }
+
+            updateHUD();
+            renderTreasureMapDots();
+            animateFlyingCoin();
+            playCoinSound(gotStreakBonus);
+
+            // Konfeti Emas
+            if (typeof confetti === "function") {
+                confetti({
+                    particleCount: gotStreakBonus ? 90 : 45,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ["#fbbf24", "#fde047", "#38bdf8", "#34d399"]
+                });
+            }
+
+            // Papar Lapisan Pujian & Ayat Contoh Bahasa Melayu
+            const praise = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
+            document.getElementById("success-emoji").textContent = emotion.emoji;
+            document.getElementById("success-headline").textContent = praise;
+
+            const bonusEl = document.getElementById("bonus-message");
+            if (gotStreakBonus) {
+                bonusEl.classList.remove("hidden");
+            } else {
+                bonusEl.classList.add("hidden");
+            }
+
+            document.getElementById("edu-word").textContent = emotion.name;
+            document.getElementById("edu-sentence").textContent = `“${emotion.sentence}”`;
+            document.getElementById("success-overlay").classList.remove("hidden");
+
+            // Baca pujian & ayat contoh dalam Bahasa Melayu
+            speakMalay(`Syabas! ${emotion.name}. ${emotion.sentence}`);
+
+            // Terus ke cabaran seterusnya selepas 3.4 saat
+            setTimeout(() => {
+                if (!isGameRunning) return;
+                isPausedForFeedback = false;
+                currentEmotionIndex++;
+                currentChallengeNumber++;
+                loadCurrentChallenge();
+            }, 3400);
+        }
+
+        // ==================== TAMAT PERMAINAN ====================
+        function endGame() {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            stopCamera();
+
+            // Reset paparan amaran masa
+            document.getElementById("timer-box").classList.remove("bg-red-200", "border-red-600");
+            document.getElementById("timer-display").classList.remove("text-red-600");
+            document.getElementById("time-warning-banner").classList.add("hidden");
+
+            switchScreen("screen-end");
+            playFanfareSound();
+
+            if (typeof confetti === "function") {
+                confetti({
+                    particleCount: 120,
+                    spread: 90,
+                    origin: { y: 0.5 }
+                });
+            }
+
+            // Kemas kini statistik akhir
+            document.getElementById("end-score").textContent = score;
+            document.getElementById("end-correct").textContent = correctCount;
+            document.getElementById("end-coins").textContent = coins;
+
+            // Tentukan Lencana Pencapaian Lanun
+            let badge = "⚓ Kelasi Muda Ceria";
+            let msg = "Usaha yang baik, lanun kecil! Teruskan berlatih mengenal pelbagai emosi setiap hari!";
+            if (correctCount >= 10) {
+                badge = "👑 Raja Lanun Harta Karun Emosi";
+                msg = "Luar biasa! Kamu sangat cekap mengenal dan mengekspresikan semua emosi dengan tepat!";
+            } else if (correctCount >= 5) {
+                badge = "🏴‍☠️ Kapten Lanun Emosi Terbilang";
+                msg = "Syabas, Kapten! Kamu berjaya mengumpul banyak syiling emas dalam pengembaraan ini!";
+            }
+
+            document.getElementById("end-badge-title").textContent = badge;
+            document.getElementById("end-encouragement").textContent = msg;
+
+            speakMalay(`Tahniah, Kapten Hebat! Misi memburu harta karun tamat. Kamu berjaya mengumpul ${coins} syiling emas dengan ${score} markah.`);
+        }
+
+        async function restartGame() {
+            await initGame();
+        }
+
+        function returnToMenu() {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            stopCamera();
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+            }
+            switchScreen("screen-menu");
+        }
+
+        // Pastikan senarai suara speechSynthesis dimuatkan awal
+        if ("speechSynthesis" in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+    </script>
+</body>
+</html>
